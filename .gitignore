@@ -1,0 +1,17 @@
+# Model checkpoints (large — hosted on GitHub Releases)
+*.keras
+*.h5
+
+# Old / superseded artifact directories
+cnn-contexts/
+vit-contents/
+level_c_results*/
+__pycache__/
+*.pyc
+*.pyo
+
+# Misc
+.DS_Store
+*.zip
+*.log
+.env

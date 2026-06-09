@@ -1,0 +1,12 @@
+# Runtime used in the Colab training notebook
+# Pin transformers below 4.49: TFViTModel was removed from the public API in 4.49+
+transformers<4.49.0
+tf-keras
+
+# Analysis scripts
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+Pillow
