@@ -5,25 +5,28 @@ B2: variante da inconsistencia com e sem o grupo scene (robustez da exclusao)
 B3: calibracao (ECE + reliability diagram)
 B4: estatistica robusta de latencia (mediana, IQR, p95/p99, IC bootstrap)
 
-Uso: conda run -n diss python notebooks/level_b_analysis.py
-Saida: imprime relatorio + salva reliability_diagram.png em notebooks/
+Uso: python level_b_analysis.py
+Saida: imprime relatorio + salva reliability_diagram.png neste diretorio
+
+Fonte dos dados: level-c-out/ (regime frozen = protocolo principal do artigo).
+Os valores impressos aqui sao os publicados no artigo e na dissertacao.
 """
 import numpy as np
 from pathlib import Path
 
-CNN_DIR = Path('/home/polivei/Documents/diss/notebooks/cnn-contexts')
-VIT_DIR = Path('/home/polivei/Documents/diss/notebooks/vit-contents')
-OUT_DIR = Path('/home/polivei/Documents/diss/notebooks')
+DIR = Path(__file__).resolve().parent / 'level-c-out'
+OUT_DIR = Path(__file__).resolve().parent
+REGIME = 'frozen'
 
-pcnn = np.load(CNN_DIR / 'predictions_cnn.npz')
-pvit = np.load(VIT_DIR / 'predictions_vit.npz')
+pcnn = np.load(DIR / f'predictions_cnn_{REGIME}.npz')
+pvit = np.load(DIR / f'predictions_vit_{REGIME}.npz')
 y_true = pcnn['y_true'].astype(int)
 y_cnn = pcnn['y_pred_bin'].astype(int)
 y_vit = pvit['y_pred_bin'].astype(int)
 proba_cnn = pcnn['y_pred_proba']
 proba_vit = pvit['y_pred_proba']
-lat_cnn = np.load(CNN_DIR / 'latencies_cnn.npy')
-lat_vit = np.load(VIT_DIR / 'latencies_vit.npy')
+lat_cnn = np.load(DIR / f'latencies_cnn_{REGIME}.npy')
+lat_vit = np.load(DIR / f'latencies_vit_{REGIME}.npy')
 N, C = y_true.shape
 
 CLASS_NAMES = [

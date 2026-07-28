@@ -1,30 +1,29 @@
 """
 Roda os testes estatisticos formais (McNemar para acuracia, Welch t-test para latencia)
-sobre os dados exportados dos notebooks re-executados no Colab.
+sobre os artefatos por-amostra exportados pela ablacao no Colab.
 
-Saida: imprime relatorio com os valores a substituir nos placeholders do access.tex
-       e tambem salva metricas atualizadas em statistical_results.txt
+Fonte dos dados: level-c-out/ (regime frozen = protocolo principal do artigo).
+Os valores impressos aqui sao os publicados no artigo e na dissertacao.
+
+Uso: python run_statistical_tests.py
 """
 import numpy as np
-import pandas as pd
 from pathlib import Path
 from scipy import stats
 from statsmodels.stats.contingency_tables import mcnemar
-from sklearn.metrics import (
-    classification_report, roc_auc_score, precision_recall_fscore_support,
-)
+from sklearn.metrics import roc_auc_score, precision_recall_fscore_support
 
-CNN_DIR = Path('/home/polivei/Documents/diss/notebooks/cnn-contexts')
-VIT_DIR = Path('/home/polivei/Documents/diss/notebooks/vit-contents')
+DIR = Path(__file__).resolve().parent / 'level-c-out'
+REGIME = 'frozen'
 
 # ============================================================
 # 1. Load data
 # ============================================================
-lat_cnn = np.load(CNN_DIR / 'latencies_cnn.npy')
-lat_vit = np.load(VIT_DIR / 'latencies_vit.npy')
+lat_cnn = np.load(DIR / f'latencies_cnn_{REGIME}.npy')
+lat_vit = np.load(DIR / f'latencies_vit_{REGIME}.npy')
 
-pcnn = np.load(CNN_DIR / 'predictions_cnn.npz')
-pvit = np.load(VIT_DIR / 'predictions_vit.npz')
+pcnn = np.load(DIR / f'predictions_cnn_{REGIME}.npz')
+pvit = np.load(DIR / f'predictions_vit_{REGIME}.npz')
 
 y_true = pcnn['y_true'].astype(int)
 y_cnn = pcnn['y_pred_bin'].astype(int)
@@ -34,7 +33,7 @@ proba_vit = pvit['y_pred_proba']
 N, C = y_true.shape
 
 print('=' * 70)
-print('1. DATASET METRICS (updated from re-run)')
+print(f'1. DATASET METRICS (level-c-out, regime={REGIME})')
 print('=' * 70)
 print(f'Test samples: {N}')
 print(f'Classes: {C}')
@@ -213,7 +212,7 @@ print(f'Global mean: CNN={acc_g_cnn*100:.2f}%  ViT={acc_g_vit*100:.2f}%  diff={(
 # ============================================================
 print()
 print('=' * 70)
-print('4. McNEMAR TEST (paired comparison on 13,115 test samples)')
+print(f'4. McNEMAR TEST (paired comparison on {N:,} test samples)')
 print('=' * 70)
 
 # Define "correct" per sample: all 11 labels match (subset accuracy)
@@ -237,8 +236,25 @@ table = [[a, b], [c, d]]
 mc = mcnemar(table, exact=False, correction=True)
 print(f'McNemar (subset-correct): chi2={mc.statistic:.4f}, p={mc.pvalue:.4g}')
 
-# Also compute per-task McNemar (more interpretable)
-print('\nPer-task McNemar (only flips on the relevant sub-vector):')
+# Per-task McNemar under BOTH correctness definitions.
+# The PUBLISHED values (paper + dissertation) use the argmax single-label
+# definition, for consistency with the per-task accuracies reported above.
+# The binary sub-vector definition is printed for completeness: it counts a
+# task as correct only if every label in the sub-vector matches at threshold
+# 0.5, so it also penalizes group-empty / multi-active predictions and yields
+# larger chi2 values. Both are valid; only the argmax row is the one cited.
+print('\nPer-task McNemar -- argmax single-label (PUBLISHED definition):')
+for label, idxs in [('Scene', scene_idx), ('Time of Day', time_idx), ('Weather', weather_idx)]:
+    cc = y_true[:, idxs].argmax(axis=1) == proba_cnn[:, idxs].argmax(axis=1)
+    cv = y_true[:, idxs].argmax(axis=1) == proba_vit[:, idxs].argmax(axis=1)
+    b_ = (cc & (~cv)).sum()
+    c_ = ((~cc) & cv).sum()
+    tab = [[(cc & cv).sum(), b_], [c_, ((~cc) & (~cv)).sum()]]
+    mc_ = mcnemar(tab, exact=False, correction=True)
+    print(f'  {label}: chi2={mc_.statistic:.4f}, p={mc_.pvalue:.4g}, '
+          f'CNN-only correct={b_}, ViT-only correct={c_}')
+
+print('\nPer-task McNemar -- binary sub-vector at threshold 0.5 (not cited):')
 for label, idxs in [('Scene', scene_idx), ('Time of Day', time_idx), ('Weather', weather_idx)]:
     cc = (y_true[:, idxs] == y_cnn[:, idxs]).all(axis=1)
     cv = (y_true[:, idxs] == y_vit[:, idxs]).all(axis=1)
@@ -248,3 +264,19 @@ for label, idxs in [('Scene', scene_idx), ('Time of Day', time_idx), ('Weather',
     mc_ = mcnemar(tab, exact=False, correction=True)
     print(f'  {label}: chi2={mc_.statistic:.4f}, p={mc_.pvalue:.4g}, '
           f'CNN-only correct={b_}, ViT-only correct={c_}')
+
+# ============================================================
+# 5. McNemar on the logical-inconsistency flag (ground-truth-free)
+# ============================================================
+print()
+print('=' * 70)
+print('5. McNEMAR ON THE LOGICAL-INCONSISTENCY FLAG')
+print('=' * 70)
+inc_cnn = inconsistency_notebook(y_cnn)
+inc_vit = inconsistency_notebook(y_vit)
+b01 = int((inc_cnn & ~inc_vit).sum())   # inconsistent only for the CNN
+b10 = int((~inc_cnn & inc_vit).sum())   # inconsistent only for the ViT
+tab = [[int((inc_cnn & inc_vit).sum()), b01], [b10, int((~inc_cnn & ~inc_vit).sum())]]
+mc_inc = mcnemar(tab, exact=False, correction=True)
+print(f'  CNN-only inconsistent={b01}, ViT-only inconsistent={b10}')
+print(f'  chi2={mc_inc.statistic:.4f}, p={mc_inc.pvalue:.4g}')

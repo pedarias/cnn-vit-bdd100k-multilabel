@@ -4,7 +4,7 @@ Code and artifacts for the paper:
 
 > **Evaluation of Deep Learning Models for Classifying Weather Conditions on Roads and Highways**  
 > Pedro H. A. Oliveira, Claiton de Oliveira, Silvio R. R. Sanches — UTFPR Cornélio Procópio  
-> *IEEE Access* (under review)
+> Submitted to *IEEE Access*
 
 ---
 
@@ -12,9 +12,9 @@ Code and artifacts for the paper:
 
 Compares **MobileNetV2** (CNN) and **ViT-B/16** (Vision Transformer) for simultaneous
 multi-label classification of weather, scene type, and time of day on the
-[BDD100K](https://bdd-data.berkeley.edu/) dataset. Both backbones are fully frozen; only
-a shared 11-class sigmoid head is trained, isolating each architecture's representational
-capacity.
+[BDD100K](https://bdd-data.berkeley.edu/) dataset. In the main protocol both backbones are
+fully frozen and only a shared 11-class sigmoid head is trained, isolating each
+architecture's representational capacity.
 
 Key results (frozen-backbone protocol, 13,097 test samples):
 
@@ -22,6 +22,12 @@ Key results (frozen-backbone protocol, 13,097 test samples):
 |---|---|---|---|---|
 | MobileNetV2 | 80.87% | 75.15% | 19.52% | 73 ms |
 | ViT-B/16 | **83.84%** | **80.62%** | **14.04%** | 137 ms |
+
+A controlled ablation on the same split also trains both models with the backbone
+unfrozen. Fine-tuning wins in both cases (86.21% vs. 84.85% global), so freezing is a
+training-efficiency optimum rather than an accuracy-maximizing choice; inference latency
+and footprint are unchanged, being properties of the architecture rather than of the
+training regime. Run `level_c_analysis.py` for the full ablation table.
 
 ---
 
@@ -35,11 +41,17 @@ Key results (frozen-backbone protocol, 13,097 test samples):
 ├── level_b_analysis.py            # ECE calibration + error-detector recall
 ├── gerar_pareto_e_benchmark.py    # Pareto frontier + SOTA benchmark figures
 ├── gerar_curvas_convergencia.py   # Training convergence curves
-└── level-c-out/                   # Per-sample predictions and latency arrays
+└── level-c-out/                   # Per-sample predictions, latencies, training histories
     ├── predictions_{cnn,vit}_{frozen,finetune}.npz   (y_true, y_pred_bin, y_pred_proba)
     ├── predictions_ood_{cnn,vit}_{frozen,finetune}.npz
-    └── latencies_{cnn,vit}_{frozen,finetune}.npy
+    ├── latencies_{cnn,vit}_{frozen,finetune}.npy     (50 measurements each)
+    └── history_{cnn,vit}_{frozen,finetune}.{json,csv}  (per-epoch metrics)
 ```
+
+All scripts read from `level-c-out/` using paths relative to their own location, so
+they run from a fresh clone with no configuration. The published numbers come from the
+`frozen` regime; set `REGIME = 'finetune'` at the top of a script to inspect the
+fine-tuned models instead.
 
 ---
 
@@ -66,25 +78,33 @@ pip install -r requirements.txt
 Then run the analysis scripts against the exported artifacts:
 
 ```bash
-python level_c_analysis.py       # accuracy, inconsistency, per-class, OOD
-python run_statistical_tests.py  # McNemar + Welch + Shapiro-Wilk
-python level_b_analysis.py       # ECE + error-detector recall
+python level_c_analysis.py       # frozen-vs-fine-tune ablation, inconsistency, OOD foggy
+python run_statistical_tests.py  # McNemar + Welch + Shapiro-Wilk, per-class weather P/R/F1
+python level_b_analysis.py       # ECE calibration + error-detector recall
 ```
+
+These reproduce the published statistics from the raw per-sample outputs, without
+retraining: McNemar CNN vs ViT (subset accuracy) χ² = 323.46; Welch *t* = −10.43 with
+Cohen's *d* = 2.09 on latency; McNemar on the inconsistency flag χ² = 185.19; ECE 1.58%
+(CNN) vs 1.10% (ViT).
 
 ### 3. Figures
 
 ```bash
 python gerar_pareto_e_benchmark.py   # pareto_frontier.png, benchmark_sota.png
-python gerar_curvas_convergencia.py  # curvas_convergencia.png
+python gerar_curvas_convergencia.py  # curvas_convergencia.png (from history_*.json)
 ```
+
+`level_b_analysis.py` additionally writes `reliability_diagram.png`. Figure outputs are
+git-ignored: the scripts plus `level-c-out/` are the sources of truth.
 
 ---
 
 ## Pre-trained checkpoints
 
-The four model checkpoints (`cnn_frozen_best.keras`, `cnn_finetune_best.keras`,
-`vit_frozen_best.keras`, `vit_finetune_best.keras`) are available as assets in the
-[v1.0 Release](../../releases/tag/v1.0).
+Model checkpoints are not distributed with this repository. All reported metrics can be
+reproduced from the per-sample artifacts in `level-c-out/` without them; retraining from
+scratch takes roughly one Colab T4 session per configuration.
 
 ---
 
@@ -100,13 +120,13 @@ with 178 foggy images retained as a held-out OOD probe.
 ## Citation
 
 ```bibtex
-@article{oliveira2025cnnvit,
+@article{oliveira2026cnnvit,
   title   = {Evaluation of Deep Learning Models for Classifying Weather Conditions
              on Roads and Highways},
   author  = {Oliveira, Pedro H. A. and de Oliveira, Claiton and Sanches, Silvio R. R.},
   journal = {IEEE Access},
-  year    = {2025},
-  note    = {Under review}
+  year    = {2026},
+  note    = {Submitted}
 }
 ```
 

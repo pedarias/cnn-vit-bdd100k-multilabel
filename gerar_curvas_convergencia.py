@@ -18,7 +18,7 @@ from pathlib import Path
 # 10 épocas; troque para 'finetune' para as curvas de 6 épocas)
 # ============================================================
 REGIME = 'frozen'
-HIST_DIR = Path('/home/polivei/Documents/diss/notebooks/level_c_results (2)')
+HIST_DIR = Path(__file__).resolve().parent / 'level-c-out'
 
 
 def load_hist(arch):

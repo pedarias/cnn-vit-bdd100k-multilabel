@@ -1,9 +1,9 @@
 """
 NIVEL C - analise local dos arrays exportados pela ablacao no Colab.
 Roda APOS baixar predictions_*.npz / latencies_*.npy / predictions_ood_*.npz
-de /content/level_c_out para notebooks/level-c-out/.
+de /content/level_c_out para o diretorio level-c-out/ deste repositorio.
 
-Uso: conda run -n diss python notebooks/level_c_analysis.py
+Uso: python level_c_analysis.py
 
 Produz:
   - tabela frozen vs fine-tune (global + por tarefa) para CNN e ViT
@@ -20,7 +20,7 @@ try:
 except Exception:
     HAVE_SM = False
 
-DIR = Path('/home/polivei/Documents/diss/notebooks/level-c-out')
+DIR = Path(__file__).resolve().parent / 'level-c-out'
 
 CLASS_NAMES = [
     'scene_city street', 'scene_highway', 'scene_residential',
